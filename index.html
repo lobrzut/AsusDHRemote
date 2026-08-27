@@ -1011,12 +1011,16 @@
         } else {
           sw.checked = !enabled;
           await refreshAutostartUI(sw.checked);
-          showToast(data.error || "Failed to update autostart", true);
+          let msg = data.error || `Failed to update autostart (HTTP ${response.status})`;
+          if (response.status === 404) {
+            msg = "Restart the service (tray → Exit, then open_gui.bat) to enable autostart control";
+          }
+          showToast(msg, true);
         }
       } catch (err) {
         sw.checked = !enabled;
         await refreshAutostartUI(sw.checked);
-        showToast("Failed to update autostart", true);
+        showToast("Service not reachable — is ASUS DH Remote running?", true);
       } finally {
         sw.disabled = false;
       }
@@ -1025,6 +1029,7 @@
     async function updateStatus() {
       const dot = document.getElementById("status-dot");
       const text = document.getElementById("status-text");
+      const sw = document.getElementById("autostart-switch");
 
       try {
         const response = await fetch('/api/status');
@@ -1036,8 +1041,15 @@
           } else {
             text.textContent = "Service Active (no receiver)";
           }
-          if (typeof data.autostart_enabled === "boolean") {
+          const supportsAutostart = typeof data.autostart_enabled === "boolean";
+          if (supportsAutostart) {
+            sw.disabled = false;
+            sw.title = "";
             await refreshAutostartUI(data.autostart_enabled);
+          } else {
+            // Old service binary still running while new index.html is served
+            sw.disabled = true;
+            sw.title = "Restart the service to enable Start with Windows";
           }
         } else {
           dot.classList.add("disconnected");

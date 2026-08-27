@@ -245,32 +245,70 @@ def enable_autostart():
         return False, "start_hidden.vbs not found"
     shortcut = _startup_shortcut_path()
     workdir = _base_dir()
-
-    def _ps_escape(path):
-        return path.replace("'", "''")
-
-    ps = (
-        "$s = New-Object -ComObject WScript.Shell; "
-        f"$c = $s.CreateShortcut('{_ps_escape(shortcut)}'); "
-        f"$c.TargetPath = '{_ps_escape(target)}'; "
-        f"$c.WorkingDirectory = '{_ps_escape(workdir)}'; "
-        "$c.WindowStyle = 7; "
-        "$c.Save()"
-    )
+    startup_dir = os.path.dirname(shortcut)
     try:
+        os.makedirs(startup_dir, exist_ok=True)
+    except OSError as e:
+        return False, f"Cannot access Startup folder: {e}"
+
+    # Prefer a tiny temp VBS via wscript — reliable from a hidden background service
+    # (PowerShell can fail or hang when CREATE_NO_WINDOW is used in some sessions).
+    def _vbs_quote(path):
+        return path.replace('"', '""')
+
+    vbs_body = (
+        'Set s = CreateObject("WScript.Shell")\r\n'
+        f'Set c = s.CreateShortcut("{_vbs_quote(shortcut)}")\r\n'
+        f'c.TargetPath = "{_vbs_quote(target)}"\r\n'
+        f'c.WorkingDirectory = "{_vbs_quote(workdir)}"\r\n'
+        'c.WindowStyle = 7\r\n'
+        'c.Save\r\n'
+    )
+    tmp_vbs = os.path.join(_base_dir(), "_create_autostart_tmp.vbs")
+    try:
+        with open(tmp_vbs, "w", encoding="utf-8", newline="") as f:
+            f.write(vbs_body)
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", ps],
+            ["wscript.exe", "//B", "//Nologo", tmp_vbs],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=15,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
+        if result.returncode != 0:
+            err = (result.stderr or result.stdout or f"wscript exit {result.returncode}").strip()
+            # Fallback: PowerShell COM shortcut
+            def _ps_escape(path):
+                return path.replace("'", "''")
+            ps = (
+                "$s = New-Object -ComObject WScript.Shell; "
+                f"$c = $s.CreateShortcut('{_ps_escape(shortcut)}'); "
+                f"$c.TargetPath = '{_ps_escape(target)}'; "
+                f"$c.WorkingDirectory = '{_ps_escape(workdir)}'; "
+                "$c.WindowStyle = 7; "
+                "$c.Save()"
+            )
+            result = subprocess.run(
+                ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            )
+            if result.returncode != 0:
+                err2 = (result.stderr or result.stdout or err or "Failed to create startup shortcut").strip()
+                return False, err2
     except Exception as e:
         return False, str(e)
+    finally:
+        try:
+            if os.path.isfile(tmp_vbs):
+                os.remove(tmp_vbs)
+        except OSError:
+            pass
 
-    if result.returncode != 0 or not os.path.isfile(shortcut):
-        err = (result.stderr or result.stdout or "Failed to create startup shortcut").strip()
-        return False, err
+    if not os.path.isfile(shortcut):
+        return False, "Shortcut was not created in the Startup folder"
     print(f"Autostart enabled: {shortcut}", flush=True)
     return True, None
 
@@ -349,6 +387,7 @@ class RemoteHTTPHandler(BaseHTTPRequestHandler):
             if os.path.exists(index_path):
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Cache-Control', 'no-store')
                 self.end_headers()
                 with open(index_path, 'r', encoding='utf-8') as f:
                     self.wfile.write(f.read().encode('utf-8'))
@@ -452,7 +491,12 @@ class RemoteHTTPHandler(BaseHTTPRequestHandler):
                 }).encode('utf-8'))
         else:
             self.send_response(404)
+            self.send_header('Content-Type', 'application/json')
             self.end_headers()
+            self.wfile.write(json.dumps({
+                "success": False,
+                "error": "Unknown API endpoint. Restart the ASUS DH Remote service to load updates."
+            }).encode('utf-8'))
 
 def run_http_server():
     global httpd_server

@@ -92,6 +92,7 @@ python asus_dh_service.py --console --gui
 | Receiver not detected | Confirm Device Manager shows HID `VID_1130&PID_CC00`; try another USB port |
 | Media keys do nothing | Focus a media app; some UWP players ignore global keys |
 | Port 5555 in use | Close the other process or change the port in `asus_dh_service.py` |
+| Autostart toggle fails / 404 | The web UI can refresh while an **old** service process is still running. Exit via tray → **Exit**, then run `open_gui.bat` again |
 | Autostart not running | Enable **Start with Windows** in the GUI/tray, or re-run `install_autostart.bat`; check `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup` |
 
 ---
