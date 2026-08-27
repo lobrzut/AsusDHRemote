@@ -18,8 +18,8 @@ Lightweight background service that revives the legacy **ASUS Digital Home Remot
 - **Debounce** — 250 ms filter; volume hold repeats at 150 ms
 - **Global media keys** — Play/Pause, Prev/Next, Volume via scan codes (works with Jellyfin, Spotify, Chrome, etc.)
 - **Web GUI** — local dashboard on `http://127.0.0.1:5555` matching the silver/amber remote
-- **System tray** — open settings, view log, reload config, quit
-- **Autostart** — optional Startup-folder shortcut (hidden VBS launcher)
+- **System tray** — open settings, toggle **Start with Windows**, view log, reload config, quit
+- **Autostart** — enable/disable from the web GUI, tray menu, or the install/uninstall `.bat` helpers
 
 ---
 
@@ -30,8 +30,10 @@ Lightweight background service that revives the legacy **ASUS Digital Home Remot
    ```bash
    pip install -r requirements.txt
    ```
-3. Optional autostart: double-click **`install_autostart.bat`**  
-   (remove later with **`uninstall_autostart.bat`**).
+3. Optional autostart (any of these):
+   - In the web GUI: toggle **Start with Windows**
+   - Tray icon: check **Start with Windows**
+   - Or double-click **`install_autostart.bat`** / **`uninstall_autostart.bat`**
 4. Double-click **`open_gui.bat`** — starts the service, tray icon, and browser GUI.
 
 First run creates a local `config.json` from `config.example.json` (your mappings stay on your machine and are gitignored).
@@ -90,7 +92,7 @@ python asus_dh_service.py --console --gui
 | Receiver not detected | Confirm Device Manager shows HID `VID_1130&PID_CC00`; try another USB port |
 | Media keys do nothing | Focus a media app; some UWP players ignore global keys |
 | Port 5555 in use | Close the other process or change the port in `asus_dh_service.py` |
-| Autostart not running | Re-run `install_autostart.bat`; check `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup` |
+| Autostart not running | Enable **Start with Windows** in the GUI/tray, or re-run `install_autostart.bat`; check `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup` |
 
 ---
 
@@ -112,7 +114,7 @@ Narzędzie przywraca klasycznego pilota **ASUS Digital Home** na Windows 10/11: 
    ```bash
    pip install -r requirements.txt
    ```
-4. Opcjonalnie: **`install_autostart.bat`** (usunięcie: **`uninstall_autostart.bat`**).
+4. Opcjonalnie włącz autostart: przełącznik **Start with Windows** w GUI / tray, albo `install_autostart.bat`.
 5. Uruchom **`open_gui.bat`** — usługa + przeglądarka na `http://127.0.0.1:5555`.
 
 Przy pierwszym starcie powstanie lokalny `config.json` (nie jest commitowany). Naciśnij przycisk na pilocie — podświetli się na makiecie i przewinie listę mapowań.

@@ -454,6 +454,78 @@
       font-weight: 600;
     }
 
+    .autostart-toggle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 8px 14px;
+      border-radius: 100px;
+      user-select: none;
+    }
+
+    .autostart-toggle span {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .autostart-toggle span.on {
+      color: var(--text);
+    }
+
+    .switch {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .switch-slider {
+      position: absolute;
+      inset: 0;
+      background: #2a2438;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .switch-slider::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 2px;
+      top: 2px;
+      background: #c4bdd4;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+
+    .switch input:checked + .switch-slider {
+      background: rgba(146, 84, 222, 0.45);
+      border-color: var(--accent);
+    }
+
+    .switch input:checked + .switch-slider::before {
+      transform: translateX(18px);
+      background: #fff;
+    }
+
+    .switch input:disabled + .switch-slider {
+      opacity: 0.5;
+      cursor: wait;
+    }
+
     .config-list {
       display: flex;
       flex-direction: column;
@@ -736,6 +808,13 @@
     <div class="glass-card config-card">
       <div class="config-header">
         <h2>Button Mappings</h2>
+        <label class="autostart-toggle" title="Launch the service when Windows starts">
+          <span id="autostart-label">Start with Windows</span>
+          <div class="switch">
+            <input type="checkbox" id="autostart-switch" onchange="toggleAutostart(this.checked)">
+            <span class="switch-slider"></span>
+          </div>
+        </label>
       </div>
 
       <div class="config-list" id="config-list">
@@ -890,60 +969,56 @@
       }
     }
 
-    function showToast() {
+    function showToast(message, isError) {
       const toast = document.getElementById("save-toast");
+      const text = toast.querySelector("span");
+      const dot = toast.querySelector(".toast-dot");
+      text.textContent = message || "Configuration saved successfully!";
+      toast.style.borderColor = isError ? "#ff4d4f" : "#52c41a";
+      if (dot) {
+        dot.style.background = isError ? "#ff4d4f" : "#52c41a";
+        dot.style.boxShadow = isError ? "0 0 8px #ff4d4f" : "0 0 8px #52c41a";
+      }
       toast.classList.add("show");
       setTimeout(() => {
         toast.classList.remove("show");
       }, 3000);
     }
 
-    let lastProcessedTimestamp = 0;
-    
-    async function checkKeypress() {
-      try {
-        const response = await fetch('/api/last_press');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.key && data.timestamp > lastProcessedTimestamp) {
-            lastProcessedTimestamp = data.timestamp;
-            highlightKey(data.key);
-          }
-        }
-      } catch (err) {
-        // Network timeout fallback
+    async function refreshAutostartUI(enabled) {
+      const sw = document.getElementById("autostart-switch");
+      const label = document.getElementById("autostart-label");
+      if (typeof enabled === "boolean") {
+        sw.checked = enabled;
       }
+      label.classList.toggle("on", sw.checked);
+      label.textContent = sw.checked ? "Starts with Windows" : "Start with Windows";
     }
 
-    function highlightKey(hexKey) {
-      // Clear active highlights
-      document.querySelectorAll(".btn-remote").forEach(btn => btn.classList.remove("active"));
-      document.querySelectorAll(".btn-dir").forEach(btn => btn.classList.remove("active"));
-      document.querySelectorAll(".key-row").forEach(row => row.classList.remove("highlighted"));
-
-      // Highlight corresponding mockup button
-      let remoteBtn = document.getElementById(`btn-${hexKey}`);
-      if (!remoteBtn) {
-        // Fallback search by key attribute
-        remoteBtn = document.querySelector(`[data-key="${hexKey}"]`);
-      }
-      
-      if (remoteBtn) {
-        remoteBtn.classList.add("active");
-        setTimeout(() => {
-          remoteBtn.classList.remove("active");
-        }, 800);
-      }
-
-      // Highlight configuration list row
-      const configRow = document.getElementById(`row-${hexKey}`);
-      if (configRow) {
-        configRow.classList.add("highlighted");
-        configRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        setTimeout(() => {
-          configRow.classList.remove("highlighted");
-        }, 2500);
+    async function toggleAutostart(enabled) {
+      const sw = document.getElementById("autostart-switch");
+      sw.disabled = true;
+      try {
+        const response = await fetch('/api/autostart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+          await refreshAutostartUI(!!data.enabled);
+          showToast(data.enabled ? "Autostart enabled" : "Autostart disabled");
+        } else {
+          sw.checked = !enabled;
+          await refreshAutostartUI(sw.checked);
+          showToast(data.error || "Failed to update autostart", true);
+        }
+      } catch (err) {
+        sw.checked = !enabled;
+        await refreshAutostartUI(sw.checked);
+        showToast("Failed to update autostart", true);
+      } finally {
+        sw.disabled = false;
       }
     }
 
@@ -961,6 +1036,9 @@
           } else {
             text.textContent = "Service Active (no receiver)";
           }
+          if (typeof data.autostart_enabled === "boolean") {
+            await refreshAutostartUI(data.autostart_enabled);
+          }
         } else {
           dot.classList.add("disconnected");
           text.textContent = "Service Offline";
@@ -968,6 +1046,50 @@
       } catch (err) {
         dot.classList.add("disconnected");
         text.textContent = "Connecting...";
+      }
+    }
+
+    let lastProcessedTimestamp = 0;
+
+    async function checkKeypress() {
+      try {
+        const response = await fetch('/api/last_press');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.key && data.timestamp > lastProcessedTimestamp) {
+            lastProcessedTimestamp = data.timestamp;
+            highlightKey(data.key);
+          }
+        }
+      } catch (err) {
+        // Network timeout fallback
+      }
+    }
+
+    function highlightKey(hexKey) {
+      document.querySelectorAll(".btn-remote").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".btn-dir").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".key-row").forEach(row => row.classList.remove("highlighted"));
+
+      let remoteBtn = document.getElementById(`btn-${hexKey}`);
+      if (!remoteBtn) {
+        remoteBtn = document.querySelector(`[data-key="${hexKey}"]`);
+      }
+
+      if (remoteBtn) {
+        remoteBtn.classList.add("active");
+        setTimeout(() => {
+          remoteBtn.classList.remove("active");
+        }, 800);
+      }
+
+      const configRow = document.getElementById(`row-${hexKey}`);
+      if (configRow) {
+        configRow.classList.add("highlighted");
+        configRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          configRow.classList.remove("highlighted");
+        }, 2500);
       }
     }
 

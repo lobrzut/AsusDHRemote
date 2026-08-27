@@ -224,6 +224,71 @@ def save_config(new_config):
         print(f"Error saving config.json: {e}", flush=True)
         return False
 
+# --- Autostart (Windows Startup folder shortcut) ---
+AUTOSTART_SHORTCUT_NAME = "AsusDHRemote.lnk"
+
+def _startup_shortcut_path():
+    appdata = os.environ.get("APPDATA", "")
+    return os.path.join(
+        appdata,
+        "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
+        AUTOSTART_SHORTCUT_NAME
+    )
+
+def is_autostart_enabled():
+    return os.path.isfile(_startup_shortcut_path())
+
+def enable_autostart():
+    """Creates a Startup-folder shortcut to start_hidden.vbs."""
+    target = os.path.join(_base_dir(), "start_hidden.vbs")
+    if not os.path.isfile(target):
+        return False, "start_hidden.vbs not found"
+    shortcut = _startup_shortcut_path()
+    workdir = _base_dir()
+
+    def _ps_escape(path):
+        return path.replace("'", "''")
+
+    ps = (
+        "$s = New-Object -ComObject WScript.Shell; "
+        f"$c = $s.CreateShortcut('{_ps_escape(shortcut)}'); "
+        f"$c.TargetPath = '{_ps_escape(target)}'; "
+        f"$c.WorkingDirectory = '{_ps_escape(workdir)}'; "
+        "$c.WindowStyle = 7; "
+        "$c.Save()"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        )
+    except Exception as e:
+        return False, str(e)
+
+    if result.returncode != 0 or not os.path.isfile(shortcut):
+        err = (result.stderr or result.stdout or "Failed to create startup shortcut").strip()
+        return False, err
+    print(f"Autostart enabled: {shortcut}", flush=True)
+    return True, None
+
+def disable_autostart():
+    """Removes the Startup-folder shortcut if present."""
+    shortcut = _startup_shortcut_path()
+    if not os.path.isfile(shortcut):
+        return True, None
+    try:
+        os.remove(shortcut)
+        print(f"Autostart disabled: removed {shortcut}", flush=True)
+        return True, None
+    except OSError as e:
+        return False, str(e)
+
+def set_autostart(enabled):
+    return enable_autostart() if enabled else disable_autostart()
+
 # Tray Icon Helper functions
 def create_tray_icon(width, height):
     image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
@@ -249,6 +314,18 @@ def on_view_log(icon, item):
 def on_reload_config(icon, item):
     load_config()
     print("Configuration reloaded via tray menu.", flush=True)
+
+def on_toggle_autostart(icon, item):
+    enabled = not is_autostart_enabled()
+    ok, err = set_autostart(enabled)
+    if ok:
+        print(f"Autostart {'enabled' if enabled else 'disabled'} via tray.", flush=True)
+    else:
+        print(f"Autostart toggle failed: {err}", flush=True)
+    try:
+        icon.update_menu()
+    except Exception:
+        pass
 
 def on_exit(icon, item):
     global running
@@ -294,7 +371,17 @@ class RemoteHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({
                 "status": "running",
-                "receiver_connected": state.receiver_connected
+                "receiver_connected": state.receiver_connected,
+                "autostart_enabled": is_autostart_enabled()
+            }).encode('utf-8'))
+
+        elif self.path == '/api/autostart':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "enabled": is_autostart_enabled(),
+                "shortcut_path": _startup_shortcut_path()
             }).encode('utf-8'))
 
         elif self.path == '/api/last_press':
@@ -330,6 +417,39 @@ class RemoteHTTPHandler(BaseHTTPRequestHandler):
                 self.send_response(400)
                 self.end_headers()
                 self.wfile.write(str(e).encode('utf-8'))
+        elif self.path == '/api/autostart':
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length) if content_length else b"{}"
+            try:
+                body = json.loads(post_data.decode('utf-8') or "{}")
+                if "enabled" not in body:
+                    raise ValueError("Missing 'enabled' boolean")
+                enabled = bool(body["enabled"])
+                ok, err = set_autostart(enabled)
+                if ok:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "success": True,
+                        "enabled": is_autostart_enabled()
+                    }).encode('utf-8'))
+                else:
+                    self.send_response(500)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "success": False,
+                        "error": err or "Unknown error"
+                    }).encode('utf-8'))
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "success": False,
+                    "error": str(e)
+                }).encode('utf-8'))
         else:
             self.send_response(404)
             self.end_headers()
@@ -493,6 +613,7 @@ def main():
         icon_image = create_tray_icon(64, 64)
         tray_menu = pystray.Menu(
             item('Open Settings', on_open_settings, default=True),
+            item('Start with Windows', on_toggle_autostart, checked=lambda item: is_autostart_enabled()),
             item('View Log', on_view_log),
             item('Reload Config', on_reload_config),
             item('Exit', on_exit)
