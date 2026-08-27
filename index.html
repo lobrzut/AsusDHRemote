@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASUS DH Remote Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0c091d;
+      --bg-gradient: linear-gradient(135deg, #090616 0%, #110d2c 50%, #05030d 100%);
+      --accent: #9254de;
+      --accent-glow: rgba(146, 84, 222, 0.4);
+      --accent-secondary: #13c2c2;
+      --accent-secondary-glow: rgba(19, 194, 194, 0.4);
+      --text: #f0ecfa;
+      --text-muted: #8c83a5;
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --card-border: rgba(255, 255, 255, 0.07);
+      --card-blur: blur(16px);
+      --active-glow: 0 0 20px rgba(146, 84, 222, 0.8), 0 0 40px rgba(146, 84, 222, 0.4);
+      
+      /* Remote Color Palette */
+      --remote-frame: #b5babf;
+      --remote-frame-shadow: #82878c;
+      --remote-body: #101012;
+      --btn-bg-amber: #503112;
+      --btn-fg-amber: #ff9c1a;
+      --btn-bg-grey: #2e2e34;
+      --btn-fg-grey: #a0a0ab;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-color);
+      background-image: var(--bg-gradient);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    .orb-1 {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(146, 84, 222, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+      top: -100px;
+      left: -100px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .orb-2 {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(19, 194, 194, 0.1) 0%, rgba(0, 0, 0, 0) 70%);
+      bottom: -150px;
+      right: -100px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    header {
+      padding: 30px 50px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .logo-container h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #e8d8fc 0%, #13c2c2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+
+    .logo-container p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 300;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      padding: 10px 20px;
+      border-radius: 100px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #52c41a;
+      border-radius: 50%;
+      margin-right: 10px;
+      box-shadow: 0 0 10px #52c41a;
+      animation: pulse 1.5s infinite alternate;
+    }
+
+    .status-dot.disconnected {
+      background: #ff4d4f;
+      box-shadow: 0 0 10px #ff4d4f;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 40px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 20px auto 50px;
+      padding: 0 50px;
+      flex-grow: 1;
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: var(--card-blur);
+      border-radius: 24px;
+      padding: 30px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    }
+
+    /* --- Left Column: Physical Remote Visualizer Mockup --- */
+    .remote-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .remote-chassis {
+      width: 250px;
+      height: 530px;
+      background: var(--remote-frame);
+      border-radius: 14px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), inset 0 2px 5px #fff;
+      position: relative;
+    }
+
+    .remote-inner-body {
+      width: 100%;
+      height: 440px;
+      background: var(--remote-body);
+      border-radius: 8px 8px 0 0;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.8);
+      position: relative;
+    }
+
+    /* Silver/Chrome Carry Handle Cutout at the bottom */
+    .remote-handle {
+      width: 190px;
+      height: 48px;
+      border: 6px solid #9ea3a8;
+      border-radius: 8px;
+      margin-top: 15px;
+      background: transparent;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 2px 2px rgba(255,255,255,0.4);
+    }
+
+    .remote-led {
+      width: 3px;
+      height: 12px;
+      background: #3a3a3c;
+      border-radius: 1px;
+      margin-bottom: 2px;
+    }
+
+    .remote-header-section {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .remote-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      width: 100%;
+      padding-right: 5px;
+    }
+
+    .remote-brand-logo {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #e2e8f0;
+      letter-spacing: 0.5px;
+      line-height: 1;
+    }
+
+    .remote-brand-sub {
+      font-size: 0.5rem;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Buttons groups */
+    .remote-row {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      width: 100%;
+      margin: 8px 0;
+    }
+
+    .capsule-group {
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 30px;
+      padding: 6px 10px;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      background: rgba(255,255,255,0.01);
+      margin: 5px 0;
+    }
+
+    /* Button styles */
+    .btn-remote {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--btn-bg-grey);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--btn-fg-grey);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255,255,255,0.1);
+    }
+
+    .btn-remote svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    .btn-remote:hover {
+      background: #3e3e46;
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    .btn-remote.active {
+      background: var(--accent) !important;
+      color: #fff !important;
+      box-shadow: var(--active-glow) !important;
+      transform: scale(1.08) !important;
+    }
+
+    /* Power button (Red) */
+    .btn-power {
+      background: #4a1519;
+      color: #ff4d4f;
+      border-color: rgba(255, 77, 79, 0.2);
+    }
+    .btn-power:hover {
+      background: #5c1b20;
+    }
+    .btn-power.active {
+      background: #ff4d4f !important;
+      box-shadow: 0 0 20px rgba(255, 77, 79, 0.8) !important;
+    }
+
+    /* Amber buttons */
+    .btn-amber {
+      background: var(--btn-bg-amber);
+      color: var(--btn-fg-amber);
+      border-color: rgba(255, 156, 26, 0.15);
+    }
+    .btn-amber:hover {
+      background: #613c18;
+    }
+    .btn-amber.active {
+      background: var(--btn-fg-amber) !important;
+      color: #fff !important;
+      box-shadow: 0 0 20px rgba(255, 156, 26, 0.8) !important;
+    }
+
+    /* AP Launch (gold label) */
+    .btn-ap-launch {
+      font-size: 0.45rem;
+      font-weight: 800;
+      line-height: 1.1;
+      text-align: center;
+      color: #e6b23c;
+      border-color: rgba(230, 178, 60, 0.15);
+      padding: 2px;
+    }
+    .btn-ap-launch.active {
+      background: #e6b23c !important;
+      color: #000 !important;
+      box-shadow: 0 0 20px rgba(230, 178, 60, 0.8) !important;
+    }
+
+    /* Circular pad layout */
+    .remote-circle-pad {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: #1c1c1f;
+      border: 2px solid rgba(255, 255, 255, 0.05);
+      position: relative;
+      margin: 15px 0 5px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Directional keys in circle */
+    .btn-dir {
+      position: absolute;
+      background: transparent;
+      border: none;
+      color: #a0a0ab;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .btn-dir svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .btn-dir:hover {
+      color: var(--text);
+    }
+
+    .btn-dir.active {
+      color: var(--accent) !important;
+      filter: drop-shadow(0 0 8px var(--accent));
+      transform: scale(1.15);
+    }
+
+    .btn-pad-up {
+      top: 12px;
+      width: 50px;
+      height: 30px;
+    }
+
+    .btn-pad-down {
+      bottom: 12px;
+      width: 50px;
+      height: 30px;
+    }
+
+    .btn-pad-left {
+      left: 12px;
+      width: 30px;
+      height: 50px;
+    }
+
+    .btn-pad-right {
+      right: 12px;
+      width: 30px;
+      height: 50px;
+    }
+
+    .btn-pad-center {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #28282d;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    .btn-pad-center svg {
+      width: 16px;
+      height: 16px;
+    }
+    .btn-pad-center.active {
+      background: var(--accent) !important;
+      color: #fff !important;
+      box-shadow: var(--active-glow) !important;
+    }
+
+    .remote-info {
+      margin-top: 25px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      max-width: 280px;
+      line-height: 1.4;
+    }
+
+    .remote-info span {
+      background: rgba(146, 84, 222, 0.15);
+      color: #b7eb8f;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* --- Right Column: Settings Board --- */
+    .config-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 15px;
+    }
+
+    .config-header h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .config-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      max-height: 600px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+
+    .config-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .config-list::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 10px;
+    }
+    .config-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+    .config-list::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .key-row {
+      display: grid;
+      grid-template-columns: 120px 150px 1fr;
+      gap: 15px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 15px 20px;
+      border-radius: 16px;
+      align-items: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .key-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .key-row.highlighted {
+      background: rgba(146, 84, 222, 0.08);
+      border-color: var(--accent);
+      box-shadow: 0 0 15px rgba(146, 84, 222, 0.1);
+    }
+
+    .key-badge {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .key-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent-secondary);
+      background: rgba(19, 194, 194, 0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: inline-block;
+      text-align: center;
+      width: fit-content;
+    }
+
+    .key-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 5px;
+    }
+
+    select, input {
+      background: #141126;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      padding: 10px 15px;
+      border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    select:focus, input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px rgba(146, 84, 222, 0.3);
+    }
+
+    .command-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .command-container.hidden {
+      display: none;
+    }
+
+    .command-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .actions-panel {
+      margin-top: 25px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 15px;
+    }
+
+    .btn-action {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 12px 28px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-save {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(146, 84, 222, 0.3);
+    }
+
+    .btn-save:hover {
+      background: #722ed1;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(146, 84, 222, 0.4);
+    }
+
+    .btn-save:active {
+      transform: translateY(0);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: #141126;
+      border: 1px solid #52c41a;
+      color: var(--text);
+      padding: 15px 25px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 10;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-dot {
+      width: 8px;
+      height: 8px;
+      background: #52c41a;
+      border-radius: 50%;
+      margin-right: 12px;
+      box-shadow: 0 0 8px #52c41a;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.6; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb-1"></div>
+  <div class="orb-2"></div>
+
+  <header>
+    <div class="logo-container">
+      <h1>ASUS DH Remote Manager</h1>
+      <p>Configure mapping and custom macros for your Digital Home IR Receiver</p>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Service Connected</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Left Column: Real layout visualization -->
+    <div class="glass-card remote-card">
+      <div class="remote-chassis">
+        <div class="remote-inner-body">
+          <div class="remote-led"></div>
+          
+          <div class="remote-header-section">
+            <div class="remote-brand">
+              <span class="remote-brand-logo">ASUS</span>
+              <span class="remote-brand-sub">Digital HOME</span>
+            </div>
+          </div>
+          
+          <!-- Row 1: Power Button -->
+          <div class="remote-row" style="justify-content: flex-start; padding-left: 8px;">
+            <div class="btn-remote btn-power" id="btn-0x01" data-key="0x01" title="Power Button">
+              <!-- Power icon -->
+              <svg viewBox="0 0 24 24"><path d="M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A9,9 0 0,0 21,12A9,9 0 0,0 12,3M12,19A7,7 0 0,1 5,12A7,7 0 0,1 12,5A7,7 0 0,1 19,12A7,7 0 0,1 12,19M12,6A1,1 0 0,0 11,7V13A1,1 0 0,0 12,14A1,1 0 0,0 13,13V7A1,1 0 0,0 12,6Z"/></svg>
+            </div>
+          </div>
+
+          <!-- Row 2: Capsule layout containing 3 yellow buttons -->
+          <div class="capsule-group">
+            <!-- Quick Power (Lightning) -->
+            <div class="btn-remote btn-amber" id="btn-0x02" data-key="0x02" title="Quick Power (Lightning)">
+              <svg viewBox="0 0 24 24"><path d="M7,2V13H10V22L17,10H13L17,2H7Z"/></svg>
+            </div>
+            <!-- Noise Off (Fan) -->
+            <div class="btn-remote btn-amber" id="btn-0x03" data-key="0x03" title="Noise Off (Fan)">
+              <svg viewBox="0 0 24 24"><path d="M12,17C10.89,17 10,16.1 10,15C10,14.09 10.6,13.33 11.42,13.09L8.41,10.08C7.75,10.67 7,11.5 7,13C7,15.76 9.24,18 12,18C13.5,18 14.33,17.25 14.92,16.59L11.91,13.58C11.67,14.4 10.91,15 10,15M17.66,3L16.25,4.41L18.12,6.28L3,21.4L4.41,22.81L7.59,19.64C8.86,20.5 10.37,21 12,21C16.42,21 20,17.42 20,13C20,11.37 19.5,9.86 18.64,8.59L20.48,6.75L19.07,5.34L17.66,3M12,9C13.11,9 14,9.9 14,11C14,11.91 13.4,12.67 12.58,12.91L15.59,15.92C16.25,15.33 17,14.5 17,13C17,10.24 14.76,8 12,8C10.5,8 9.67,8.75 9.08,9.41L12.09,12.42C12.33,11.6 13.09,11 12,9M12,3C10.37,3 8.86,3.5 7.59,4.36L9.43,6.2C10.2,5.44 11.05,5 12,5C16.42,5 20,8.58 20,13C20,13.95 19.56,14.8 18.8,15.57L20.64,17.41C21.5,16.14 22,14.63 22,13C22,8.58 18.42,5 12,3Z"/></svg>
+            </div>
+            <!-- WiFi (Antenna) -->
+            <div class="btn-remote btn-amber" id="btn-0x04" data-key="0x04" title="WiFi">
+              <svg viewBox="0 0 24 24"><path d="M12,3C7.58,3 4,4.79 4,7C4,8.24 5.09,9.36 6.84,10.04L8.27,8.61C7.5,8.19 7,7.63 7,7C7,5.9 9.24,5 12,5C14.76,5 17,5.9 17,7C17,7.63 16.5,8.19 15.73,8.61L17.16,10.04C18.91,9.36 20,8.24 20,7C20,4.79 16.42,3 12,3M12,7C9.79,7 8,7.9 8,9C8,9.62 8.79,10.18 10,10.45L11.45,9C11.16,8.9 11,8.71 11,8.5C11,8.22 11.45,8 12,8C12.55,8 13,8.22 13,8.5C13,8.71 12.84,8.9 12.55,9L14,10.45C15.21,10.18 16,9.62 16,9C16,7.9 14.21,7 12,7M12,11A2,2 0 0,0 10,13C10,13.72 10.38,14.34 10.95,14.68L9.5,21H11.5L12,17L12.5,21H14.5L13.05,14.68C13.62,14.34 14,13.72 14,13A2,2 0 0,0 12,11Z"/></svg>
+            </div>
+          </div>
+
+          <!-- Row 3: Maximize and AP Launch -->
+          <div class="remote-row" style="margin-top: 12px;">
+            <!-- Maximize (Double Screens) -->
+            <div class="btn-remote" id="btn-0x06" data-key="0x06" title="Maximize (Double Screens)">
+              <svg viewBox="0 0 24 24"><path d="M4,6H2V20A2,2 0 0,0 4,22H18V20H4V6M20,2A2,2 0 0,1 22,4V16A2,2 0 0,1 20,18H8A2,2 0 0,1 6,16V4A2,2 0 0,1 8,2H20M20,16V4H8V16H20Z"/></svg>
+            </div>
+            <!-- AP Launch (Gold text label) -->
+            <div class="btn-remote btn-ap-launch" id="btn-0x05" data-key="0x05" title="AP Launch">
+              AP<br>LAUNCH
+            </div>
+          </div>
+
+          <!-- Row 4: Navigation Wheel Pad -->
+          <div class="remote-circle-pad">
+            <!-- Vol Up (+) -->
+            <div class="btn-dir btn-pad-up" id="btn-0x07" data-key="0x07" title="Volume Up">
+              <svg viewBox="0 0 24 24"><path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg>
+            </div>
+            <!-- Previous Track (|<<) -->
+            <div class="btn-dir btn-pad-left" id="btn-0x08" data-key="0x08" title="Previous Track">
+              <svg viewBox="0 0 24 24"><path d="M6,18V6H8V18H6M9.5,12L18,6V18L9.5,12Z"/></svg>
+            </div>
+            <!-- Play/Pause (>||) -->
+            <div class="btn-remote btn-pad-center" id="btn-0x09" data-key="0x09" title="Play/Pause">
+              <svg viewBox="0 0 24 24"><path d="M3,5V19L11,12M13,5V19H16V5M18,5V19H21V5"/></svg>
+            </div>
+            <!-- Next Track (>>|) -->
+            <div class="btn-dir btn-pad-right" id="btn-0x0A" data-key="0x0A" title="Next Track">
+              <svg viewBox="0 0 24 24"><path d="M16,18H18V6H16M6,18L14.5,12L6,6V18Z"/></svg>
+            </div>
+            <!-- Vol Down (-) -->
+            <div class="btn-dir btn-pad-down" id="btn-0x0B" data-key="0x0B" title="Volume Down">
+              <svg viewBox="0 0 24 24"><path d="M19,13H5V11H19V13Z"/></svg>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Carrying handle visual cut out -->
+        <div class="remote-handle"></div>
+      </div>
+
+      <div class="remote-info">
+        <p>Press a button on your physical remote controller to automatically <span>highlight</span> it and edit its map configuration.</p>
+      </div>
+    </div>
+
+    <!-- Right Column: Settings Board -->
+    <div class="glass-card config-card">
+      <div class="config-header">
+        <h2>Button Mappings</h2>
+      </div>
+
+      <div class="config-list" id="config-list">
+        <!-- Dynamic elements injected here -->
+      </div>
+
+      <div class="actions-panel">
+        <button class="btn-action btn-save" onclick="saveConfiguration()">Save Mappings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="save-toast">
+    <div class="toast-dot"></div>
+    <span>Configuration saved successfully!</span>
+  </div>
+
+  <script>
+    // Exact button names dictionary based on physical buttons
+    const BUTTON_NAMES = {
+      "0x01": "Power Button",
+      "0x02": "Quick Power (Lightning)",
+      "0x03": "Noise Off (Fan)",
+      "0x04": "WiFi",
+      "0x05": "AP Launch",
+      "0x06": "Maximize (Double Screens)",
+      "0x07": "Volume Up (+)",
+      "0x08": "Previous Track (|<<)",
+      "0x09": "Play / Pause (>||)",
+      "0x0A": "Next Track (>>|)",
+      "0x0B": "Volume Down (-)"
+    };
+
+    const ACTION_PRESETS = [
+      { value: "volume_up", label: "Volume Up" },
+      { value: "volume_down", label: "Volume Down" },
+      { value: "mute", label: "Mute Volume" },
+      { value: "play_pause", label: "Play / Pause Media" },
+      { value: "next_track", label: "Next Track" },
+      { value: "prev_track", label: "Previous Track" },
+      { value: "show_desktop", label: "Show / Hide Desktop" },
+      { value: "lock_pc", label: "Lock Windows Workstation" },
+      { value: "toggle_maximize", label: "Maximize / Restore Window" },
+      { value: "run_command", label: "Run Custom Command" }
+    ];
+
+    let currentConfig = {};
+
+    function buildConfigUI() {
+      const container = document.getElementById("config-list");
+      container.innerHTML = "";
+
+      Object.keys(BUTTON_NAMES).forEach(hexKey => {
+        const itemData = currentConfig[hexKey] || { action: "mute" };
+
+        const row = document.createElement("div");
+        row.className = "key-row";
+        row.id = `row-${hexKey}`;
+
+        const badgeDiv = document.createElement("div");
+        badgeDiv.className = "badge-column";
+        badgeDiv.innerHTML = `
+          <div class="key-badge">
+            <span class="key-code">${hexKey}</span>
+            <span class="key-name">${BUTTON_NAMES[hexKey]}</span>
+          </div>
+        `;
+        row.appendChild(badgeDiv);
+
+        const select = document.createElement("select");
+        select.id = `select-${hexKey}`;
+        select.onchange = () => toggleCommandField(hexKey);
+        
+        ACTION_PRESETS.forEach(preset => {
+          const opt = document.createElement("option");
+          opt.value = preset.value;
+          opt.textContent = preset.label;
+          if (itemData.action === preset.value) opt.selected = true;
+          select.appendChild(opt);
+        });
+        row.appendChild(select);
+
+        const cmdVal = itemData.command || "";
+        const isHidden = itemData.action !== "run_command" ? "hidden" : "";
+        const cmdContainer = document.createElement("div");
+        cmdContainer.className = `command-container ${isHidden}`;
+        cmdContainer.id = `cmd-container-${hexKey}`;
+        cmdContainer.innerHTML = `
+          <span class="command-label">Windows command line / program path</span>
+          <input type="text" id="input-${hexKey}" value="${cmdVal.replace(/"/g, '&quot;')}" placeholder="e.g. calc.exe or notepad.exe">
+        `;
+        row.appendChild(cmdContainer);
+
+        container.appendChild(row);
+      });
+    }
+
+    function toggleCommandField(hexKey) {
+      const select = document.getElementById(`select-${hexKey}`);
+      const cmdContainer = document.getElementById(`cmd-container-${hexKey}`);
+      if (select.value === "run_command") {
+        cmdContainer.classList.remove("hidden");
+      } else {
+        cmdContainer.classList.add("hidden");
+      }
+    }
+
+    async function loadConfiguration() {
+      try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+          currentConfig = await response.json();
+          buildConfigUI();
+        }
+      } catch (err) {
+        console.error("Error loading config:", err);
+      }
+    }
+
+    async function saveConfiguration() {
+      const newConfig = {};
+
+      Object.keys(BUTTON_NAMES).forEach(hexKey => {
+        const select = document.getElementById(`select-${hexKey}`);
+        const input = document.getElementById(`input-${hexKey}`);
+
+        if (select) {
+          newConfig[hexKey] = {
+            action: select.value
+          };
+          if (select.value === "run_command" && input) {
+            newConfig[hexKey].command = input.value;
+          }
+        }
+      });
+
+      try {
+        const response = await fetch('/api/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newConfig)
+        });
+
+        if (response.ok) {
+          currentConfig = newConfig;
+          showToast();
+        }
+      } catch (err) {
+        console.error("Error saving config:", err);
+      }
+    }
+
+    function showToast() {
+      const toast = document.getElementById("save-toast");
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3000);
+    }
+
+    let lastProcessedTimestamp = 0;
+    
+    async function checkKeypress() {
+      try {
+        const response = await fetch('/api/last_press');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.key && data.timestamp > lastProcessedTimestamp) {
+            lastProcessedTimestamp = data.timestamp;
+            highlightKey(data.key);
+          }
+        }
+      } catch (err) {
+        // Network timeout fallback
+      }
+    }
+
+    function highlightKey(hexKey) {
+      // Clear active highlights
+      document.querySelectorAll(".btn-remote").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".btn-dir").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".key-row").forEach(row => row.classList.remove("highlighted"));
+
+      // Highlight corresponding mockup button
+      let remoteBtn = document.getElementById(`btn-${hexKey}`);
+      if (!remoteBtn) {
+        // Fallback search by key attribute
+        remoteBtn = document.querySelector(`[data-key="${hexKey}"]`);
+      }
+      
+      if (remoteBtn) {
+        remoteBtn.classList.add("active");
+        setTimeout(() => {
+          remoteBtn.classList.remove("active");
+        }, 800);
+      }
+
+      // Highlight configuration list row
+      const configRow = document.getElementById(`row-${hexKey}`);
+      if (configRow) {
+        configRow.classList.add("highlighted");
+        configRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        setTimeout(() => {
+          configRow.classList.remove("highlighted");
+        }, 2500);
+      }
+    }
+
+    async function updateStatus() {
+      const dot = document.getElementById("status-dot");
+      const text = document.getElementById("status-text");
+
+      try {
+        const response = await fetch('/api/status');
+        if (response.ok) {
+          const data = await response.json();
+          dot.classList.remove("disconnected");
+          if (data.receiver_connected) {
+            text.textContent = "Service + IR Receiver";
+          } else {
+            text.textContent = "Service Active (no receiver)";
+          }
+        } else {
+          dot.classList.add("disconnected");
+          text.textContent = "Service Offline";
+        }
+      } catch (err) {
+        dot.classList.add("disconnected");
+        text.textContent = "Connecting...";
+      }
+    }
+
+    loadConfiguration();
+    setInterval(checkKeypress, 120);
+    setInterval(updateStatus, 2000);
+  </script>
+</body>
+</html>

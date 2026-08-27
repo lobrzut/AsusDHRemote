@@ -1,0 +1,37 @@
+{
+  "0x01": {
+    "action": "show_desktop"
+  },
+  "0x02": {
+    "action": "lock_pc"
+  },
+  "0x03": {
+    "action": "mute"
+  },
+  "0x04": {
+    "action": "run_command",
+    "command": "cmd.exe /c start https://www.google.com"
+  },
+  "0x05": {
+    "action": "run_command",
+    "command": "calc.exe"
+  },
+  "0x06": {
+    "action": "toggle_maximize"
+  },
+  "0x07": {
+    "action": "volume_up"
+  },
+  "0x08": {
+    "action": "prev_track"
+  },
+  "0x09": {
+    "action": "play_pause"
+  },
+  "0x0A": {
+    "action": "next_track"
+  },
+  "0x0B": {
+    "action": "volume_down"
+  }
+}

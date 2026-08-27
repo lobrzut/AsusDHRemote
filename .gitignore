@@ -1,0 +1,33 @@
+# Local / runtime
+asus_dh_remote.log
+*.log
+config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# OS / IDE
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Temporary / machine-specific helpers (hardcoded local paths)
+diag_vbs.vbs
+run_test.vbs
+start_hidden.bat
