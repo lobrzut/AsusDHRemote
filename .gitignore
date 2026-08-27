@@ -27,4 +27,8 @@ Desktop.ini
 .vscode/
 *.swp
 
+# Temporary / machine-specific helpers (hardcoded local paths)
+diag_vbs.vbs
+run_test.vbs
+start_hidden.bat
 _create_autostart_tmp.vbs
